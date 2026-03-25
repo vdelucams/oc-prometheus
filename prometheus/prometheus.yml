@@ -1,0 +1,30 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: "orka-server"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - 10.221.192.20
+
+  - job_name: "orka-operator"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - 10.221.192.20:8080
+
+  - job_name: "orka-nodes"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - 10.221.192.31:9100
+          - 10.221.192.32:9100
+          - 10.221.192.33:9100
+          - 10.221.192.34:9100
+          - 10.221.192.35:9100
+          - 10.221.192.36:9100
+          - 10.221.192.37:9100
+          - 10.221.192.38:9100
+          - 10.221.192.39:9100
