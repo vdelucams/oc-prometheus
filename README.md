@@ -15,8 +15,10 @@ MacStadium Orka clusters using vendor-supported Prometheus metrics.
 
 ## Setup
 ```bash
-cp env.example .env
+
 # Edit ORKA_ENDPOINT and ORKA_NODE_EXPORTERS based on your IP Plan
+#  Add IP on prometheus.yml
+cp env.example .env 
 docker compose up -d
 ```
 
