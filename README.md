@@ -1,5 +1,5 @@
 # oc-prometheus
-oc-prometheus is a lightweight Prometheus + Grafana stack for monitoring
+oc-prometheus is easy to start lightweight Prometheus + Grafana stack pre-set overview on 
 MacStadium Orka clusters using vendor-supported Prometheus metrics.
 
 ## Features
@@ -16,7 +16,7 @@ MacStadium Orka clusters using vendor-supported Prometheus metrics.
 ## Setup
 ```bash
 cp env.example .env
-# Edit ORKA_ENDPOINT and ORKA_NODE_EXPORTERS
+# Edit ORKA_ENDPOINT and ORKA_NODE_EXPORTERS based on your IP Plan
 docker compose up -d
 ```
 
@@ -29,5 +29,8 @@ docker compose up -d
 - Password: admin
 
 ## Notes
+- Docker box must have visibility to Orka Cluster 
 - Orka metrics are scraped from the Orka API, operator, and node exporters
 - This project does not modify the Orka cluster
+- You can create, use and modify the dashboards based on the MacStadium Orka Prometheus scraping and your needs.
+- 
