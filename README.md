@@ -11,13 +11,14 @@ MacStadium Orka clusters using vendor-supported Prometheus metrics.
 ## Requirements
 - Docker
 - Docker Compose
-- Network access to the Orka private IP plan
+- Network access to Orka Cluster & IP plan
 
 ## Setup
 ```bash
 
 # Edit ORKA_ENDPOINT and ORKA_NODE_EXPORTERS based on your IP Plan
-#  Add IP on prometheus.yml
+#  Add IPs on prometheus.yml as example (update ips based on cluster IP Plan)
+
 cp env.example .env 
 docker compose up -d
 ```
