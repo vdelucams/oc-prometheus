@@ -362,7 +362,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(orka_operator_virtual_machine_success_deployment_duration_seconds_sum[1h])) / clamp_min(sum(rate(orka_operator_virtual_machine_success_deployment_duration_seconds_count[1h])), 1)",
+          "expr": "sum(orka_operator_virtual_machine_success_deployment_duration_seconds_sum) / clamp_min(sum(orka_operator_virtual_machine_success_deployment_duration_seconds_count), 1)",
           "refId": "A"
         }
       ],
