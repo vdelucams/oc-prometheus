@@ -18,7 +18,80 @@
   "uid": "orka-customer-overview",
   "refresh": "30s",
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "cluster",
+        "type": "query",
+        "label": "Cluster",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": "label_values(cluster)",
+        "definition": "label_values(cluster)",
+        "refresh": 1,
+        "hide": 2,
+        "sort": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "orka_version",
+        "type": "query",
+        "label": "Orka Version",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": "label_values(orka_version)",
+        "definition": "label_values(orka_version)",
+        "refresh": 1,
+        "hide": 2,
+        "sort": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "tenant",
+        "type": "query",
+        "label": "Tenant",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": "label_values(tenant)",
+        "definition": "label_values(tenant)",
+        "refresh": 1,
+        "hide": 2,
+        "sort": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "site",
+        "type": "query",
+        "label": "Site",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": "label_values(site)",
+        "definition": "label_values(site)",
+        "refresh": 1,
+        "hide": 2,
+        "sort": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": {},
+        "options": []
+      }
+    ]
   },
   "panels": [
     {
@@ -45,7 +118,7 @@
       "datasource": null,
       "options": {
         "mode": "markdown",
-        "content": "### \ud83d\udda5\ufe0f Cluster: **ORKL10000020** (L20)\n\n**Site:** LAS1  &nbsp;\u00b7&nbsp;  **Tenant:** MS23087700\n\n**Domain:** l20.orka.app  &nbsp;\u00b7&nbsp;  **Status:** PROD"
+        "content": "### \ud83d\udda5\ufe0f Cluster: **$cluster**\n\n**Tenant:** $tenant  &nbsp;\u00b7&nbsp;  **Site:** $site"
       }
     },
     {
@@ -60,7 +133,7 @@
       "datasource": null,
       "options": {
         "mode": "markdown",
-        "content": "### \ud83c\udff7\ufe0f Orka Version \u2014 **3.6.2**\n\n**Operator:** 3.6.2  &nbsp;\u00b7&nbsp;  **Frontend:** 3.6.2  &nbsp;\u00b7&nbsp;  **API Server:** 3.6.2\n\n_cluster release (l20.orka.app)_"
+        "content": "### \ud83c\udff7\ufe0f Orka Version \u2014 **$orka_version**\n\n**Operator \u00b7 Frontend \u00b7 API Server:** $orka_version\n\n_pulled from Prometheus scrape labels (set in .env)_"
       }
     },
     {
@@ -341,8 +414,8 @@
       },
       "targets": [
         {
-          "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
-          "legendFormat": "{{instance}}",
+          "expr": "(100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)) * on (instance) group_left (nodename) node_uname_info",
+          "legendFormat": "{{nodename}}",
           "refId": "A",
           "instant": true
         }
@@ -403,8 +476,8 @@
       },
       "targets": [
         {
-          "expr": "avg by (instance) (node_load1)",
-          "legendFormat": "{{instance}}",
+          "expr": "(avg by (instance) (node_load1)) * on (instance) group_left (nodename) node_uname_info",
+          "legendFormat": "{{nodename}}",
           "refId": "A",
           "instant": true
         }
@@ -459,8 +532,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (instance) (rate(node_network_receive_bytes_total{device!~\"lo|utun.*|awdl.*|llw.*|bridge.*\"}[5m])) * 8",
-          "legendFormat": "{{instance}}",
+          "expr": "(sum by (instance) (rate(node_network_receive_bytes_total{device!~\"lo|utun.*|awdl.*|llw.*|bridge.*\"}[5m])) * 8) * on (instance) group_left (nodename) node_uname_info",
+          "legendFormat": "{{nodename}}",
           "refId": "A",
           "instant": true
         }
@@ -502,8 +575,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (instance) (rate(node_network_transmit_bytes_total{device!~\"lo|utun.*|awdl.*|llw.*|bridge.*\"}[5m])) * 8",
-          "legendFormat": "{{instance}}",
+          "expr": "(sum by (instance) (rate(node_network_transmit_bytes_total{device!~\"lo|utun.*|awdl.*|llw.*|bridge.*\"}[5m])) * 8) * on (instance) group_left (nodename) node_uname_info",
+          "legendFormat": "{{nodename}}",
           "refId": "A",
           "instant": true
         }
@@ -609,8 +682,8 @@
       },
       "targets": [
         {
-          "expr": "(1 - node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|aufs|squashfs|nfs.*\", mountpoint=\"/\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|aufs|squashfs|nfs.*\", mountpoint=\"/\"}) * 100",
-          "legendFormat": "{{instance}}",
+          "expr": "((1 - node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|aufs|squashfs|nfs.*\", mountpoint=\"/\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|aufs|squashfs|nfs.*\", mountpoint=\"/\"}) * 100) * on (instance) group_left (nodename) node_uname_info",
+          "legendFormat": "{{nodename}}",
           "refId": "A",
           "instant": true
         }
@@ -757,31 +830,31 @@
           "refId": "A"
         },
         {
-          "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "expr": "(100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)) * on (instance) group_left (nodename) node_uname_info",
           "format": "table",
           "instant": true,
           "refId": "B"
         },
         {
-          "expr": "avg by (instance) (node_load1)",
+          "expr": "(avg by (instance) (node_load1)) * on (instance) group_left (nodename) node_uname_info",
           "format": "table",
           "instant": true,
           "refId": "C"
         },
         {
-          "expr": "sum by (instance) (rate(node_network_receive_bytes_total{device!~\"lo|utun.*|awdl.*|llw.*|bridge.*\"}[5m])) * 8",
+          "expr": "(sum by (instance) (rate(node_network_receive_bytes_total{device!~\"lo|utun.*|awdl.*|llw.*|bridge.*\"}[5m])) * 8) * on (instance) group_left (nodename) node_uname_info",
           "format": "table",
           "instant": true,
           "refId": "D"
         },
         {
-          "expr": "sum by (instance) (rate(node_network_transmit_bytes_total{device!~\"lo|utun.*|awdl.*|llw.*|bridge.*\"}[5m])) * 8",
+          "expr": "(sum by (instance) (rate(node_network_transmit_bytes_total{device!~\"lo|utun.*|awdl.*|llw.*|bridge.*\"}[5m])) * 8) * on (instance) group_left (nodename) node_uname_info",
           "format": "table",
           "instant": true,
           "refId": "E"
         },
         {
-          "expr": "time() - avg by (instance) (node_boot_time_seconds)",
+          "expr": "(time() - avg by (instance) (node_boot_time_seconds)) * on (instance) group_left (nodename) node_uname_info",
           "format": "table",
           "instant": true,
           "refId": "F"
@@ -801,13 +874,14 @@
               "__name__": true
             },
             "renameByName": {
-              "instance": "Node",
               "Value #A": "Up",
               "Value #B": "CPU %",
               "Value #C": "Load (1m)",
               "Value #D": "Net In",
               "Value #E": "Net Out",
-              "Value #F": "Uptime"
+              "Value #F": "Uptime",
+              "nodename": "Node",
+              "instance": "IP"
             }
           }
         }
