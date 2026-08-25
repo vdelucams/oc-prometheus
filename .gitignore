@@ -1,0 +1,8 @@
+# Local runtime config — copy env.example to .env and edit locally
+.env
+
+# macOS cruft
+.DS_Store
+
+# Local-only archive of retired dashboards (kept out of the template)
+retired-dashboards/
