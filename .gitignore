@@ -1,6 +1,9 @@
 # Local runtime config — copy env.example to .env and edit locally
 .env
 
+# Generated at container start from .env by prometheus/generate-config.sh
+prometheus/prometheus.yml
+
 # macOS cruft
 .DS_Store
 
