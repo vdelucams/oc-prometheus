@@ -1,0 +1,1307 @@
+{
+  "uid": "orka-customer-x-example",
+  "title": "Orka — Customer X Example (customer-consumable metrics)",
+  "tags": [
+    "orka",
+    "customer-x-example",
+    "customer-metrics"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "What this dashboard is",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 6
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "## Customer X example: only customer-consumable Orka metrics\nBuilt to show what a customer's **own Prometheus + Grafana** can chart against the Customer X \"service review\" (Sept 2026) asks **R1, R2, D3 and O3**, using only endpoints documented as customer-scrapable.\n\n| Job in this stack | Endpoint scraped | Provides |\n|---|---|---|\n| `orka-operator` | `<orka LB IP>:8080/metrics` | the 10 `orka_operator_*` VM metrics |\n| `orka-nodes` | `<node IP>:9100/metrics` | node_exporter: filesystem, CPU, memory, load, network |\n| `kube-state-metrics` | `<orka LB IP>:9101/metrics` (here via a read-only port-forward) | node conditions, pod phases, node capacity |\n\nPanels whose title ends **(not available)** or the final text panel mark asks that **no endpoint documented as customer-reachable can answer**. Every panel's description (hover the **i** icon) lists its exact metric, job, labels and PromQL. Lab source: L20 (ORKL10000020). Full write-up: `docs/customer-x-example-dashboard.md`."
+      }
+    },
+    {
+      "id": 2,
+      "type": "row",
+      "title": "R1 / O3 — Node health  (kube-state-metrics :9101, node_exporter :9100)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Nodes Ready",
+      "description": "Metric: `kube_node_status_condition` (gauge, 0/1) from job `kube-state-metrics`.\nLabels used: `condition=\"Ready\"`, `status=\"true\"`.\nPromQL: count of series equal to 1.\nMeaning: Kubernetes' own view of how many nodes (masters included) report Ready. This is the closest customer-visible signal to ask R1 (node failure detection).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count(kube_node_status_condition{condition=\"Ready\",status=\"true\"} == 1)",
+          "legendFormat": "Ready",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Nodes NotReady / Unknown",
+      "description": "Metric: `kube_node_status_condition`, job `kube-state-metrics`.\nLabels: `condition=\"Ready\"`, `status=~\"false|unknown\"`.\nPromQL: count of those series equal to 1, `or vector(0)` so the panel shows 0 instead of 'No data'.\nMeaning: nodes Kubernetes reports as not Ready or Unknown. Red when above zero.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 7,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count(kube_node_status_condition{condition=\"Ready\",status=~\"false|unknown\"} == 1) or vector(0)",
+          "legendFormat": "Not ready",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "node_exporter targets down",
+      "description": "Metric: `up` (Prometheus' own scrape result), job `orka-nodes`.\nPromQL: `count(up{job=\"orka-nodes\"} == 0) or vector(0)`.\nMeaning: node exporters this Prometheus cannot scrape. Distinct from Kubernetes readiness: a node can be Ready while its exporter is unreachable, and the reverse.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 7,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count(up{job=\"orka-nodes\"} == 0) or vector(0)",
+          "legendFormat": "Down",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Nodes not Ready (detail)",
+      "description": "Metric: `kube_node_status_condition`, job `kube-state-metrics`, `condition=\"Ready\"`, `status!=\"true\"`, value 1. Instant query shown as a table (columns: node, status). Empty table = every node Ready.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 7,
+        "w": 12,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "kube_node_status_condition{condition=\"Ready\",status!=\"true\"} == 1",
+          "legendFormat": "",
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "endpoint": true,
+              "service": true,
+              "namespace": true,
+              "pod": true,
+              "uid": true,
+              "cluster": true,
+              "orka_version": true,
+              "tenant": true,
+              "site": true,
+              "container": true,
+              "condition": true,
+              "system_uuid": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "bargauge",
+      "title": "CPU usage % — by node",
+      "description": "Metric: `node_cpu_seconds_total` (counter) with `mode=\"idle\"`, job `orka-nodes`.\nPromQL: `100 - avg by (instance)(rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100`, joined to `node_uname_info` on `instance` to show the node name.\nMeaning: host CPU busy %. Supports O3 (node dashboards).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100)) * on (instance) group_left (nodename) node_uname_info",
+          "legendFormat": "{{nodename}}",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 8,
+      "type": "bargauge",
+      "title": "Load average (1m) — by node",
+      "description": "Metric: `node_load1` (gauge), job `orka-nodes`, joined to `node_uname_info` for the node name.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 11,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(avg by (instance) (node_load1)) * on (instance) group_left (nodename) node_uname_info",
+          "legendFormat": "{{nodename}}",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 8
+              },
+              {
+                "color": "red",
+                "value": 16
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "D3 — Storage and thresholds  (node_exporter :9100)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "bargauge",
+      "title": "Host data volume used % — macOS nodes  (80% = Customer X's example threshold)",
+      "description": "Metrics: `node_filesystem_size_bytes` and `node_filesystem_avail_bytes` (gauges), job `orka-nodes`.\nSelector: `mountpoint=\"/System/Volumes/Data\", fstype=\"apfs\"` — the writable APFS data volume on the macOS hosts, where VM disk images and cached images live.\nPromQL: `100 * (1 - avail / size)`, each side wrapped in `max by (instance)`, joined to `node_uname_info` for the node name.\nThresholds: yellow 70, red 80 (Customer X's ask D3 cites 80% as an example). Linux nodes do not have this mountpoint and are excluded.\nNote: this is host free space. It does NOT show how much space the VMs have been allocated (see final text panel).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(100 * (1 - max by (instance) (node_filesystem_avail_bytes{mountpoint=\"/System/Volumes/Data\",fstype=\"apfs\"}) / max by (instance) (node_filesystem_size_bytes{mountpoint=\"/System/Volumes/Data\",fstype=\"apfs\"}))) * on (instance) group_left (nodename) node_uname_info",
+          "legendFormat": "{{nodename}}",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 11,
+      "type": "bargauge",
+      "title": "Host data volume free GiB — macOS nodes",
+      "description": "Metric: `node_filesystem_avail_bytes`, same selector as the panel to the left, divided by 1024^3.\nMeaning: absolute headroom. Red below 50 GiB, yellow below 100 GiB (illustrative values, edit to taste).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(max by (instance) (node_filesystem_avail_bytes{mountpoint=\"/System/Volumes/Data\",fstype=\"apfs\"}) / 1024 / 1024 / 1024) * on (instance) group_left (nodename) node_uname_info",
+          "legendFormat": "{{nodename}}",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decgbytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 100
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Host data volume used % over time — macOS nodes",
+      "description": "Same query as the bar gauge, as a range query, so the slope towards the 80% line is visible. Source: `node_filesystem_*` on job `orka-nodes`. History is limited to this Prometheus' retention and uptime.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (1 - max by (instance) (node_filesystem_avail_bytes{mountpoint=\"/System/Volumes/Data\",fstype=\"apfs\"}) / max by (instance) (node_filesystem_size_bytes{mountpoint=\"/System/Volumes/Data\",fstype=\"apfs\"})) * on (instance) group_left (nodename) node_uname_info",
+          "legendFormat": "{{nodename}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "bargauge",
+      "title": "NFS image-storage mount used %",
+      "description": "Metrics: `node_filesystem_size_bytes`, `node_filesystem_avail_bytes`, job `orka-nodes`, selector `fstype=\"nfs\"` (`/Users/devadmin/mnt` on macOS nodes, `/var/mnt` on the Linux node that mounts it).\nPromQL: `100 * (1 - avail/size)` grouped by instance and mountpoint.\nMeaning: capacity of the shared NFS export used for image storage, as seen from each node. All nodes see the same export, so the values should agree; a node that disagrees is worth checking.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (1 - max by (instance, mountpoint) (node_filesystem_avail_bytes{fstype=\"nfs\"}) / max by (instance, mountpoint) (node_filesystem_size_bytes{fstype=\"nfs\"}))",
+          "legendFormat": "{{instance}} {{mountpoint}}",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "R2 — VM and deployment health  (orka-operator :8080)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "VM instances",
+      "description": "Metric: `orka_operator_virtual_machine_instances_total` (gauge, unlabelled), job `orka-operator`.\nMeaning: VM instances the operator currently counts.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(orka_operator_virtual_machine_instances_total)",
+          "legendFormat": "all",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Apple silicon VMs",
+      "description": "Metric: `orka_operator_apple_silicon_virtual_machine_instances_total` (gauge), job `orka-operator`.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 37,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(orka_operator_apple_silicon_virtual_machine_instances_total)",
+          "legendFormat": "arm",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 17,
+      "type": "stat",
+      "title": "Intel VMs",
+      "description": "Metric: `orka_operator_intel_virtual_machine_instances_total` (gauge), job `orka-operator`.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 37,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(orka_operator_intel_virtual_machine_instances_total)",
+          "legendFormat": "intel",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 18,
+      "type": "stat",
+      "title": "Deployments OK / failed in range",
+      "description": "Metrics: `orka_operator_virtual_machine_successes_total` and `orka_operator_virtual_machine_failures_total` (counters), job `orka-operator`.\nPromQL: `sum(increase(<counter>[$__range]))`, i.e. over the time range selected at the top of the dashboard.\nMeaning: deployment outcomes the operator recorded.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 37,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(orka_operator_virtual_machine_successes_total[$__range]))",
+          "legendFormat": "OK",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(orka_operator_virtual_machine_failures_total[$__range]))",
+          "legendFormat": "Failed",
+          "refId": "B",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 19,
+      "type": "stat",
+      "title": "VM lifetime errors (counter)",
+      "description": "Metric: `orka_operator_virtual_machine_lifetime_errors_total` (counter), job `orka-operator`.\nPer the Engineering metrics reference, this metric is emitted by the operator and is NOT kept in MacStadium's central store, so it exists only for a customer who scrapes `:8080` directly. The sources do not say what triggers it, so this panel only displays the value and its growth.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 37,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(orka_operator_virtual_machine_lifetime_errors_total)",
+          "legendFormat": "errors",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "VM instances over time",
+      "description": "Same three gauges as the stats above, as range queries (job `orka-operator`).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(orka_operator_virtual_machine_instances_total)",
+          "legendFormat": "total",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(orka_operator_apple_silicon_virtual_machine_instances_total)",
+          "legendFormat": "apple silicon",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(orka_operator_intel_virtual_machine_instances_total)",
+          "legendFormat": "intel",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Deployments per 5 minutes",
+      "description": "PromQL: `sum(increase(<successes or failures counter>[5m]))`. Counters: `orka_operator_virtual_machine_successes_total`, `orka_operator_virtual_machine_failures_total`.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 41,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(orka_operator_virtual_machine_successes_total[5m]))",
+          "legendFormat": "OK",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(orka_operator_virtual_machine_failures_total[5m]))",
+          "legendFormat": "failed",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Average deployment duration (s)",
+      "description": "Metrics: `orka_operator_virtual_machine_success_deployment_duration_seconds` and `..._failed_deployment_duration_seconds` (histograms), using only the `_sum` and `_count` series.\nPromQL: `rate(_sum[5m]) / rate(_count[5m])`. The line has gaps in any window with no deployments (0/0).\nThese two series are the part of the histograms MacStadium itself keeps centrally; the `_bucket` series are also emitted at `:8080`.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 41,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(orka_operator_virtual_machine_success_deployment_duration_seconds_sum[5m])) / sum(rate(orka_operator_virtual_machine_success_deployment_duration_seconds_count[5m]))",
+          "legendFormat": "success",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(orka_operator_virtual_machine_failed_deployment_duration_seconds_sum[5m])) / sum(rate(orka_operator_virtual_machine_failed_deployment_duration_seconds_count[5m]))",
+          "legendFormat": "failed",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 23,
+      "type": "row",
+      "title": "Capacity and pod phase  (kube-state-metrics :9101)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 49,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "VM slots allocatable (apple.com/vm)",
+      "description": "Metric: `kube_node_status_allocatable` (gauge) with `resource=\"apple_com_vm\"`, job `kube-state-metrics`.\nPromQL: `sum(...)` across nodes. Meaning: how many VM slots the nodes advertise to Kubernetes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 50,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(kube_node_status_allocatable{resource=\"apple_com_vm\"})",
+          "legendFormat": "slots",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 25,
+      "type": "timeseries",
+      "title": "Pods by phase in orka-* namespaces",
+      "description": "Metric: `kube_pod_status_phase` (gauge, 0/1), job `kube-state-metrics`, `namespace=~\"orka.*\"`.\nPromQL: `sum by (phase)(... == 1)`. Meaning: pod counts per Kubernetes phase in the tenant namespaces.\nThis panel reports pod phase only. The sources reviewed do not state that one pod equals one VM, so no VM claim is made here. Note: MacStadium's central store drops `orka-*` namespaces from this metric; a customer scraping `:9101` directly receives them.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 50,
+        "w": 18,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (phase) (kube_pod_status_phase{namespace=~\"orka.*\"} == 1)",
+          "legendFormat": "{{phase}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 26,
+      "type": "text",
+      "title": "NOT available from any customer-consumable endpoint (per the sources reviewed)",
+      "gridPos": {
+        "x": 0,
+        "y": 55,
+        "w": 24,
+        "h": 9
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "These parts of the Customer X asks have **no metric** at any endpoint documented as customer-reachable. They are shown so the dashboard does not imply coverage it does not have.\n\n| Ask | What would be needed | Status |\n|---|---|---|\n| D3 / D1 | VM disk **allocated vs physical** (over-commit) | no metric; only host free space exists |\n| D2 | Image-cache size, cached-image count, stale entries | no metric |\n| R1 | Orka Engine / agent / WindowServer process health; virtual-kubelet heartbeat | virtual-kubelet exposes no `/metrics`; no Engine or agent metric listed |\n| R2 | Per-VM health or liveness; per-VM, per-node or per-namespace breakdown | operator metrics are 10 unlabelled series (the `vm_namespace` label is a 3.7.0-alpha addition) |\n| O3 | Firewall throughput, discards, session counts | not on the cluster; reached only via the MacStadium portal GraphQL API |\n| O2 | Notification by MacStadium | not a metric; internal alerting exists but customer notification is undocumented |\n\nAlerting itself (an alert at 80% disk, for example) would be a Prometheus alert rule plus Alertmanager on the customer's side. This dashboard only draws thresholds; it does not send alerts."
+      }
+    }
+  ],
+  "description": "Example dashboard built only from customer-scrapable Orka endpoints (operator :8080, kube-state-metrics :9101, node_exporter :9100), mapped to the Customer X review asks R1, R2, D3, O3. Panels marked not available have no customer-consumable metric."
+}
