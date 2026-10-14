@@ -24,6 +24,30 @@ On `up`, a small `config-init` step generates `prometheus/prometheus.yml` from y
 `.env` (Prometheus can't read env vars itself), then Prometheus + Grafana start.
 Re-run `docker compose up -d` after editing `.env` to regenerate.
 
+## Pointing it at your own cluster or lab
+
+Everything the stack scrapes is on the cluster's **private network**, so run it on a
+machine that is on that network: a laptop connected to the cluster VPN, or a host
+inside the firewall. Nothing is installed on the cluster.
+
+| `.env` value | What it is | Where to find it |
+|---|---|---|
+| `ORKA_ENDPOINT` | Host that serves the Orka **operator** metrics on `:8080/metrics` | The Orka load-balancer address, listed in the **IP Allocation** table of **My Cloud** in the MacStadium Portal (standard plan: `x.x.x.20`) |
+| `ORKA_NODE_EXPORTERS` | Every Orka node, `ip:9100` | **Host Assignments** in My Cloud, or `orka3 node list` (standard plan: `x.x.x.31` upwards) |
+| `CLUSTER_NAME`, `ORKA_VERSION`, `TENANT`, `SITE` | Labels shown in the dashboard header | Your cluster name (`ORK…`), `orka3 version`, your MS number, data centre |
+| `FW_SNMP_TARGET` (optional) | The firewall's **inside** address | Gateway of your private subnet in the IP Allocation table |
+
+Check reachability before starting (both should answer):
+```bash
+curl -sI http://<ORKA_ENDPOINT>:8080/metrics | head -1
+curl -sI http://<node-ip>:9100/metrics | head -1
+```
+The public page [Consuming Metrics from Prometheus](https://docs.macstadium.com/orka/orka-resources/consuming-metrics-from-prometheus)
+documents the operator `:8080/metrics` and node-exporter `:9100/metrics` endpoints and
+notes that port 9100 must accept TCP from the host running Prometheus. The optional
+**kube-state-metrics** feed used by the VM Slot Capacity and Customer X dashboards is not
+on that page; this repo reaches it with the `ksm-tunnel` container and a kubeconfig.
+
 ## Access
 - **Grafana:** http://localhost:3000  (admin / admin — set in `.env`) → dashboard **"Orka — Customer Overview"**
 - **Prometheus:** http://localhost:9090
@@ -216,3 +240,18 @@ Then open Grafana → **Firewall — Cisco ASA/ASAv (SNMP)** and set `licence_mb
 - Metrics are scraped from the Orka operator (`:8080`) and node exporters (`:9100`)
 - This project does not modify the Orka cluster (the optional `ksm-tunnel` only port-forwards)
 - `prometheus/prometheus.yml` is generated (gitignored); edit `.env`, not that file
+
+## References
+
+**MacStadium (public docs)**
+- [Consuming Metrics from Prometheus](https://docs.macstadium.com/orka/orka-resources/consuming-metrics-from-prometheus) — the Orka endpoints this stack scrapes, with an example `prometheus.yml`
+- [Viewing your environment in My Cloud](https://docs.macstadium.com/macstadium/macstadium-overview/ip-plan) — where the IP Allocation table, Host Assignments and VPN credentials live
+- [Connect to your Orka cluster via VPN](https://docs.macstadium.com/orka/networking-with-orka-at-macstadium/vpn-connection) — getting onto the private network from a laptop
+- [Logging into Cisco Firewall](https://docs.macstadium.com/iaas/cisco-firewalls/logging-into-cisco-firewall) and [Creating Local User Accounts on a Cisco ASA](https://docs.macstadium.com/iaas/cisco-firewalls/creating-local-user-accounts-on-a-cisco-asa) — admin access needed for the `snmp-server` lines in Step 1 of the firewall section
+- [Orka release notes](https://docs.macstadium.com/orka/orka-upgrades-and-release-notes/orka-release-notes) — metric additions per version
+
+**Upstream**
+- [prometheus/snmp_exporter](https://github.com/prometheus/snmp_exporter) — `snmp.yml` format, `--config.expand-environment-variables`, the `/snmp?auth=&module=&target=` query
+- [Prometheus configuration](https://prometheus.io/docs/prometheus/latest/configuration/configuration/) — `scrape_configs`, `relabel_configs`
+- [Grafana provisioning](https://grafana.com/docs/grafana/latest/administration/provisioning/) — how `grafana/provisioning/` loads the dashboards and datasource
+- [Cisco ASA SNMP Version 3 Tools Implementation Guide](https://www.cisco.com/c/en/us/td/docs/security/asa/snmp/guide/snmp-version-3-tools-implementation-guide/m-overview.html) — configure group, then user, then host, in that order
