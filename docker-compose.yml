@@ -22,6 +22,45 @@ services:
       - "9090:9090"
     restart: unless-stopped
 
+  # OPTIONAL (profile "ksm-tunnel"): forwards the cluster's kube-state-metrics
+  # into this stack so the "Orka — VM Slot Capacity" dashboard can count
+  # apple.com/vm slots. Needs a kubeconfig; read-only use (port-forward only).
+  # Enable with COMPOSE_PROFILES=ksm-tunnel and KSM_TARGET=ksm-tunnel:8080 in .env.
+  ksm-tunnel:
+    image: registry.k8s.io/kubectl:v1.33.0
+    container_name: oc-prometheus-ksm-tunnel
+    profiles: ["ksm-tunnel"]
+    environment:
+      KUBECONFIG: /kubeconfig
+    volumes:
+      - ${KSM_KUBECONFIG:-./secrets/kubeconfig}:/kubeconfig:ro
+    command:
+      - port-forward
+      - --address=0.0.0.0
+      - --namespace=${KSM_NAMESPACE:-monitoring}
+      - svc/${KSM_SERVICE:-kps-kube-state-metrics}
+      - "8080:${KSM_PORT:-8080}"
+    restart: unless-stopped
+
+  # OPTIONAL (profile "snmp-ssd"): polls the Cisco ASA/ASAv firewall over SNMPv3
+  # and exposes it to Prometheus (job macstadium-firewall-ssd). Credentials come
+  # from .env (FW_SNMP_*) and are expanded at start-up, never stored in snmp.yml.
+  # Enable with COMPOSE_PROFILES=...,snmp-ssd and FW_SNMP_TARGET in .env.
+  snmp-exporter-ssd:
+    image: prom/snmp-exporter:latest
+    container_name: oc-prometheus-snmp-exporter-ssd
+    profiles: ["snmp-ssd"]
+    environment:
+      FW_SNMP_USER: ${FW_SNMP_USER:-}
+      FW_SNMP_AUTH_PASSWORD: ${FW_SNMP_AUTH_PASSWORD:-}
+      FW_SNMP_PRIV_PASSWORD: ${FW_SNMP_PRIV_PASSWORD:-}
+    volumes:
+      - ./snmp/snmp.yml:/etc/snmp_exporter/snmp.yml:ro
+    command:
+      - --config.file=/etc/snmp_exporter/snmp.yml
+      - --config.expand-environment-variables
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:latest
     container_name: oc-prometheus-grafana

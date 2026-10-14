@@ -9,3 +9,6 @@ prometheus/prometheus.yml
 
 # Local-only archive of retired dashboards (kept out of the template)
 retired-dashboards/
+
+# Kubeconfig for the optional ksm-tunnel container — never commit
+secrets/

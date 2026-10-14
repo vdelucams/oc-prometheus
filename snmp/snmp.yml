@@ -1,0 +1,292 @@
+# snmp_exporter configuration for the Cisco ASA / ASAv firewall in front of an
+# Orka cluster. Hand-written with numeric OIDs, so no generator run or Cisco MIB
+# download is needed. Target, name and credentials come from .env (see README).
+#
+# Credentials are NOT stored here. They are expanded from environment variables
+# (FW_SNMP_USER / FW_SNMP_AUTH_PASSWORD / FW_SNMP_PRIV_PASSWORD from .env) because
+# the exporter runs with --config.expand-environment-variables.
+#
+# OIDs follow the "Cisco ASA / ASAv Firewall - Customer SNMP Monitoring
+# Enablement Guide (Draft v0.1)". All OIDs below returned data from an ASAv on
+# 9 October 2026; re-check on another model with (inside the compose network)
+# `wget -qO- 'http://snmp-exporter-ssd:9116/snmp?auth=ssd_v3&module=cisco_asa&target=<firewall-inside-ip>'`.
+# crasNumTotalFailures (392.1.3.21) was removed: on this ASAv that OID returns many
+# values under one name and makes the whole scrape fail with HTTP 500.
+# Keep the walk list narrow (guide section 8): never walk 1.3.6.1 or 1.3.6.1.4.1.9.
+
+auths:
+  ssd_v3:
+    version: 3
+    username: ${FW_SNMP_USER}
+    security_level: authPriv
+    auth_protocol: SHA256
+    password: ${FW_SNMP_AUTH_PASSWORD}
+    priv_protocol: AES
+    priv_password: ${FW_SNMP_PRIV_PASSWORD}
+
+modules:
+  cisco_asa:
+    # Wire-level hygiene: small bulk requests, because the ASA sets Don't Fragment
+    # on responses and large GETBULK replies can be lost on smaller-MTU paths.
+    max_repetitions: 10
+    timeout: 20s
+    retries: 1
+    walk:
+      - 1.3.6.1.2.1.1.3                      # sysUpTime
+      - 1.3.6.1.4.1.9.9.109.1.1.1.1.7        # cpmCPUTotal1minRev
+      - 1.3.6.1.4.1.9.9.109.1.1.1.1.8        # cpmCPUTotal5minRev
+      - 1.3.6.1.4.1.9.9.221.1.1.1.1.18       # cempMemPoolHCUsed
+      - 1.3.6.1.4.1.9.9.221.1.1.1.1.20       # cempMemPoolHCFree
+      - 1.3.6.1.4.1.9.9.147.1.2.2.2.1.5      # cfwConnectionStatValue (.40.6 in use, .40.7 peak)
+      - 1.3.6.1.2.1.31.1.1.1.1               # ifName (label lookup)
+      - 1.3.6.1.2.1.31.1.1.1.6               # ifHCInOctets
+      - 1.3.6.1.2.1.31.1.1.1.10              # ifHCOutOctets
+      - 1.3.6.1.2.1.31.1.1.1.15              # ifHighSpeed
+      - 1.3.6.1.2.1.2.2.1.8                  # ifOperStatus
+      - 1.3.6.1.2.1.2.2.1.13                 # ifInDiscards
+      - 1.3.6.1.2.1.2.2.1.14                 # ifInErrors
+      - 1.3.6.1.2.1.2.2.1.19                 # ifOutDiscards
+      - 1.3.6.1.2.1.2.2.1.20                 # ifOutErrors
+      - 1.3.6.1.4.1.9.9.392.1.3.1            # crasNumSessions
+      - 1.3.6.1.4.1.9.9.171.1.2.1.1          # cikeGlobalActiveTunnels
+      - 1.3.6.1.4.1.9.9.171.1.3.1.1          # cipSecGlobalActiveTunnels
+      - 1.3.6.1.4.1.9.9.491.1.1.1.4          # cufwConnGlobalNumResDeclined
+      - 1.3.6.1.4.1.9.9.491.1.1.1.6          # cufwConnGlobalNumActive
+      - 1.3.6.1.4.1.9.9.491.1.1.1.10         # cufwConnGlobalConnSetupRate1
+      - 1.3.6.1.4.1.9.9.491.1.1.1.11         # cufwConnGlobalConnSetupRate5
+    # ASP drop counters: the table has 531 rows, so only these ten are fetched, by exact
+    # index, with one GET (never walk the table: Cisco warns it is expensive on the ASA).
+    get:
+      - 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.92   # acl_drop
+      - 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.208   # rate_exceeded
+      - 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.64   # no_route
+      - 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.400   # nat_no_xlate_to_pat_pool
+      - 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.326   # shunned
+      - 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.45   # punt_no_mem
+      - 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.98   # tcp_not_syn
+      - 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.108   # tcp_3whs_failed
+      - 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.109   # tcp_rstfin_ooo
+      - 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.313   # interface_down
+    metrics:
+      - name: sysUpTime
+        oid: 1.3.6.1.2.1.1.3
+        type: gauge
+        help: Time since the device last booted, in hundredths of a second. A reset to a low value means a reload or crash.
+
+      - name: cpmCPUTotal1minRev
+        oid: 1.3.6.1.4.1.9.9.109.1.1.1.1.7
+        type: gauge
+        help: CPU utilisation averaged over the last minute, percent.
+        indexes:
+          - labelname: cpmCPUTotalIndex
+            type: gauge
+      - name: cpmCPUTotal5minRev
+        oid: 1.3.6.1.4.1.9.9.109.1.1.1.1.8
+        type: gauge
+        help: CPU utilisation averaged over the last five minutes, percent.
+        indexes:
+          - labelname: cpmCPUTotalIndex
+            type: gauge
+
+      - name: cempMemPoolHCUsed
+        oid: 1.3.6.1.4.1.9.9.221.1.1.1.1.18
+        type: gauge
+        help: Memory in use per pool, bytes (64-bit).
+        indexes:
+          - labelname: entPhysicalIndex
+            type: gauge
+          - labelname: cempMemPoolIndex
+            type: gauge
+      - name: cempMemPoolHCFree
+        oid: 1.3.6.1.4.1.9.9.221.1.1.1.1.20
+        type: gauge
+        help: Free memory per pool, bytes (64-bit).
+        indexes:
+          - labelname: entPhysicalIndex
+            type: gauge
+          - labelname: cempMemPoolIndex
+            type: gauge
+
+      # Service 40 / type 6 = connections currently in use; type 7 = high-water mark.
+      - name: cfwConnectionStatValue
+        oid: 1.3.6.1.4.1.9.9.147.1.2.2.2.1.5
+        type: gauge
+        help: Firewall connection statistics (40.6 in use, 40.7 peak since boot).
+        indexes:
+          - labelname: cfwConnectionStatService
+            type: gauge
+          - labelname: cfwConnectionStatType
+            type: gauge
+
+      - name: ifName
+        oid: 1.3.6.1.2.1.31.1.1.1.1
+        type: DisplayString
+        help: Interface name.
+        indexes:
+          - labelname: ifIndex
+            type: gauge
+      - name: ifHCInOctets
+        oid: 1.3.6.1.2.1.31.1.1.1.6
+        type: counter
+        help: Octets received, per interface (64-bit).
+        indexes:
+          - labelname: ifIndex
+            type: gauge
+        lookups:
+          - labels: [ifIndex]
+            labelname: ifName
+            oid: 1.3.6.1.2.1.31.1.1.1.1
+            type: DisplayString
+      - name: ifHCOutOctets
+        oid: 1.3.6.1.2.1.31.1.1.1.10
+        type: counter
+        help: Octets sent, per interface (64-bit).
+        indexes:
+          - labelname: ifIndex
+            type: gauge
+        lookups:
+          - labels: [ifIndex]
+            labelname: ifName
+            oid: 1.3.6.1.2.1.31.1.1.1.1
+            type: DisplayString
+      - name: ifHighSpeed
+        oid: 1.3.6.1.2.1.31.1.1.1.15
+        type: gauge
+        help: Nominal interface speed, Mbit/s. Denominator for utilisation.
+        indexes:
+          - labelname: ifIndex
+            type: gauge
+        lookups:
+          - labels: [ifIndex]
+            labelname: ifName
+            oid: 1.3.6.1.2.1.31.1.1.1.1
+            type: DisplayString
+      - name: ifOperStatus
+        oid: 1.3.6.1.2.1.2.2.1.8
+        type: gauge
+        help: Interface operational state (1 up, 2 down).
+        indexes:
+          - labelname: ifIndex
+            type: gauge
+        lookups:
+          - labels: [ifIndex]
+            labelname: ifName
+            oid: 1.3.6.1.2.1.31.1.1.1.1
+            type: DisplayString
+      - name: ifInDiscards
+        oid: 1.3.6.1.2.1.2.2.1.13
+        type: counter
+        help: Inbound frames discarded without error (buffer pressure).
+        indexes:
+          - labelname: ifIndex
+            type: gauge
+        lookups:
+          - labels: [ifIndex]
+            labelname: ifName
+            oid: 1.3.6.1.2.1.31.1.1.1.1
+            type: DisplayString
+      - name: ifInErrors
+        oid: 1.3.6.1.2.1.2.2.1.14
+        type: counter
+        help: Inbound frames with errors.
+        indexes:
+          - labelname: ifIndex
+            type: gauge
+        lookups:
+          - labels: [ifIndex]
+            labelname: ifName
+            oid: 1.3.6.1.2.1.31.1.1.1.1
+            type: DisplayString
+      - name: ifOutDiscards
+        oid: 1.3.6.1.2.1.2.2.1.19
+        type: counter
+        help: Outbound frames discarded without error (buffer pressure).
+        indexes:
+          - labelname: ifIndex
+            type: gauge
+        lookups:
+          - labels: [ifIndex]
+            labelname: ifName
+            oid: 1.3.6.1.2.1.31.1.1.1.1
+            type: DisplayString
+      - name: ifOutErrors
+        oid: 1.3.6.1.2.1.2.2.1.20
+        type: counter
+        help: Outbound frames with errors.
+        indexes:
+          - labelname: ifIndex
+            type: gauge
+        lookups:
+          - labels: [ifIndex]
+            labelname: ifName
+            oid: 1.3.6.1.2.1.31.1.1.1.1
+            type: DisplayString
+
+      - name: crasNumSessions
+        oid: 1.3.6.1.4.1.9.9.392.1.3.1
+        type: gauge
+        help: Active remote-access VPN sessions.
+      - name: cikeGlobalActiveTunnels
+        oid: 1.3.6.1.4.1.9.9.171.1.2.1.1
+        type: gauge
+        help: Active IKE (phase 1) tunnels.
+      - name: cipSecGlobalActiveTunnels
+        oid: 1.3.6.1.4.1.9.9.171.1.3.1.1
+        type: gauge
+        help: Active IPsec (phase 2) tunnels.
+      - name: aspDrop_acl_drop
+        oid: 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.92
+        type: counter
+        help: "ASP frame drops (cufwAspFrameDropValue index 92): Flow is denied by configured rule."
+      - name: aspDrop_rate_exceeded
+        oid: 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.208
+        type: counter
+        help: "ASP frame drops (cufwAspFrameDropValue index 208): Output QoS rate exceeded."
+      - name: aspDrop_no_route
+        oid: 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.64
+        type: counter
+        help: "ASP frame drops (cufwAspFrameDropValue index 64): No route to host."
+      - name: aspDrop_nat_no_xlate_to_pat_pool
+        oid: 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.400
+        type: counter
+        help: "ASP frame drops (cufwAspFrameDropValue index 400): Connection to PAT address without pre-existing xlate."
+      - name: aspDrop_shunned
+        oid: 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.326
+        type: counter
+        help: "ASP frame drops (cufwAspFrameDropValue index 326): Packet shunned."
+      - name: aspDrop_punt_no_mem
+        oid: 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.45
+        type: counter
+        help: "ASP frame drops (cufwAspFrameDropValue index 45): Punt no memory."
+      - name: aspDrop_tcp_not_syn
+        oid: 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.98
+        type: counter
+        help: "ASP frame drops (cufwAspFrameDropValue index 98): First TCP packet not SYN."
+      - name: aspDrop_tcp_3whs_failed
+        oid: 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.108
+        type: counter
+        help: "ASP frame drops (cufwAspFrameDropValue index 108): TCP failed 3 way handshake."
+      - name: aspDrop_tcp_rstfin_ooo
+        oid: 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.109
+        type: counter
+        help: "ASP frame drops (cufwAspFrameDropValue index 109): TCP RST/FIN out of order."
+      - name: aspDrop_interface_down
+        oid: 1.3.6.1.4.1.9.9.491.1.5.3.3.1.4.313
+        type: counter
+        help: "ASP frame drops (cufwAspFrameDropValue index 313): Interface is down."
+      - name: cufwConnGlobalNumResDeclined
+        oid: 1.3.6.1.4.1.9.9.491.1.1.1.4
+        type: counter
+        help: Connections declined because resources were unavailable.
+      - name: cufwConnGlobalNumActive
+        oid: 1.3.6.1.4.1.9.9.491.1.1.1.6
+        type: gauge
+        help: Connections currently active (unified firewall MIB).
+      - name: cufwConnGlobalConnSetupRate1
+        oid: 1.3.6.1.4.1.9.9.491.1.1.1.10
+        type: gauge
+        help: New connections per second, averaged over the last 60 seconds.
+      - name: cufwConnGlobalConnSetupRate5
+        oid: 1.3.6.1.4.1.9.9.491.1.1.1.11
+        type: gauge
+        help: New connections per second, averaged over the last 300 seconds.

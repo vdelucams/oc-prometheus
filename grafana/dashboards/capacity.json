@@ -1,0 +1,1139 @@
+{
+  "title": "Orka \u2014 VM Slot Capacity",
+  "uid": "orka-vm-slot-capacity",
+  "schemaVersion": 39,
+  "version": 2,
+  "tags": [
+    "orka",
+    "capacity",
+    "kube-state-metrics"
+  ],
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "5s",
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "description": "Apple silicon VM slots (apple.com/vm) per node and Orka namespace, from kube-state-metrics. Requires the optional ksm-tunnel / KSM_TARGET setup.",
+  "templating": {
+    "list": [
+      {
+        "name": "cluster",
+        "label": "Cluster",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(kube_node_labels, cluster)",
+          "refId": "StandardVariableQuery"
+        },
+        "definition": "label_values(kube_node_labels, cluster)",
+        "refresh": 2,
+        "sort": 1,
+        "hide": 0
+      },
+      {
+        "name": "namespace",
+        "label": "Orka namespace",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(kube_node_labels{cluster=~\"$cluster\"}, label_orka_macstadium_com_namespace)",
+          "refId": "StandardVariableQuery"
+        },
+        "definition": "label_values(kube_node_labels{cluster=~\"$cluster\"}, label_orka_macstadium_com_namespace)",
+        "refresh": 2,
+        "sort": 1,
+        "hide": 0,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "VM Slot Capacity \u2014 $cluster",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "collapsed": false,
+      "panels": [],
+      "datasource": null,
+      "id": 1
+    },
+    {
+      "type": "text",
+      "title": "How to read this",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": null,
+      "options": {
+        "mode": "markdown",
+        "content": "Each Apple silicon node advertises its VM slots as the Kubernetes resource `apple.com/vm`; every VM holds one. **0 free slots in a namespace** is exactly when Orka returns *\u201cThe maximum supported number of Apple silicon VMs has been reached\u201d* \u2014 even if CPU and memory are free. In use counts only Pending/Running pods scheduled to a node. A VM also needs free CPU/memory, so free slots tell you when a deploy **cannot** succeed, not that it will. Source: kube-state-metrics (`kube_node_status_allocatable`, `kube_pod_container_resource_requests`, `kube_node_labels`, `kube_pod_status_phase`)."
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "Total VM slots",
+      "description": "",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"})",
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Slots in use",
+      "description": "",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum((kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(namespace, pod) group_left() (max by (namespace, pod) (kube_pod_status_phase{cluster=~\"$cluster\",phase=~\"Pending|Running\"}) == 1)) * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) or vector(0)",
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 4
+    },
+    {
+      "type": "stat",
+      "title": "Free slots",
+      "description": "Free apple.com/vm slots across the selected namespaces. Red = no slot left: new deploys fail with 'maximum supported number of Apple silicon VMs'.",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 8,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum(kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"})) - (sum((kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(namespace, pod) group_left() (max by (namespace, pod) (kube_pod_status_phase{cluster=~\"$cluster\",phase=~\"Pending|Running\"}) == 1)) * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) or vector(0))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 5
+    },
+    {
+      "type": "stat",
+      "title": "Slot utilisation",
+      "description": "",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 13,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (sum((kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(namespace, pod) group_left() (max by (namespace, pod) (kube_pod_status_phase{cluster=~\"$cluster\",phase=~\"Pending|Running\"}) == 1)) * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) or vector(0)) / (sum(kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 6
+    },
+    {
+      "type": "stat",
+      "title": "VMs waiting for a slot",
+      "description": "VM pods the scheduler could not place (PodScheduled=false) that need an apple.com/vm slot.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count(kube_pod_status_scheduled{cluster=~\"$cluster\",condition=\"false\",namespace=~\"$namespace\"} == 1 and on(namespace, pod) kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"}) or vector(0)",
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 7
+    },
+    {
+      "id": 100,
+      "type": "table",
+      "title": "Live: VM slots per Orka namespace",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Updates every refresh (5s). Counts change as VMs start/stop; lag = scrape interval + kube-state-metrics watch.",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"})",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "legendFormat": ""
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum by (label_orka_macstadium_com_namespace) ((kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(namespace, pod) group_left() (max by (namespace, pod) (kube_pod_status_phase{cluster=~\"$cluster\",phase=~\"Pending|Running\"}) == 1)) * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) or sum by (label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) * 0)",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "legendFormat": ""
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) - (sum by (label_orka_macstadium_com_namespace) ((kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(namespace, pod) group_left() (max by (namespace, pod) (kube_pod_status_phase{cluster=~\"$cluster\",phase=~\"Pending|Running\"}) == 1)) * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) or sum by (label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) * 0)",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "legendFormat": ""
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (sum by (label_orka_macstadium_com_namespace) ((kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(namespace, pod) group_left() (max by (namespace, pod) (kube_pod_status_phase{cluster=~\"$cluster\",phase=~\"Pending|Running\"}) == 1)) * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) or sum by (label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) * 0) / sum by (label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"})",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "legendFormat": ""
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(sum by (label_orka_macstadium_com_namespace) (label_replace(count by (namespace) (kube_pod_status_scheduled{cluster=~\"$cluster\",condition=\"false\"} == 1 and on(namespace, pod) kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"}), \"label_orka_macstadium_com_namespace\", \"$1\", \"namespace\", \"(.*)\")) or sum by (label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) * 0)",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "legendFormat": ""
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "label_orka_macstadium_com_namespace": "Orka namespace",
+              "Value #A": "Slots",
+              "Value #B": "In use",
+              "Value #C": "Free",
+              "Value #D": "Utilisation",
+              "Value #E": "Waiting for a slot"
+            },
+            "indexByName": {
+              "label_orka_macstadium_com_namespace": 0,
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3,
+              "Value #D": 4,
+              "Value #E": 5
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Orka namespace"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Free"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 1
+                    },
+                    {
+                      "color": "green",
+                      "value": 3
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Utilisation"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 75
+                    },
+                    {
+                      "color": "red",
+                      "value": 90
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Waiting for a slot"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Per Orka namespace",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "collapsed": false,
+      "panels": [],
+      "datasource": null,
+      "id": 8
+    },
+    {
+      "type": "bargauge",
+      "title": "Free slots by namespace",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 17
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) - (sum by (label_orka_macstadium_com_namespace) ((kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(namespace, pod) group_left() (max by (namespace, pod) (kube_pod_status_phase{cluster=~\"$cluster\",phase=~\"Pending|Running\"}) == 1)) * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) or sum by (label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) * 0)",
+          "legendFormat": "{{label_orka_macstadium_com_namespace}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 9
+    },
+    {
+      "type": "timeseries",
+      "title": "Slot utilisation by namespace",
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 8,
+        "y": 17
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (sum by (label_orka_macstadium_com_namespace) ((kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(namespace, pod) group_left() (max by (namespace, pod) (kube_pod_status_phase{cluster=~\"$cluster\",phase=~\"Pending|Running\"}) == 1)) * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) or sum by (label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) * 0) / sum by (label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"})",
+          "legendFormat": "{{label_orka_macstadium_com_namespace}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 10
+    },
+    {
+      "type": "timeseries",
+      "title": "Slots in use vs capacity",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"})",
+          "legendFormat": "capacity {{label_orka_macstadium_com_namespace}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (label_orka_macstadium_com_namespace) ((kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(namespace, pod) group_left() (max by (namespace, pod) (kube_pod_status_phase{cluster=~\"$cluster\",phase=~\"Pending|Running\"}) == 1)) * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"})",
+          "legendFormat": "in use {{label_orka_macstadium_com_namespace}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 11
+    },
+    {
+      "type": "row",
+      "title": "Per node",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "collapsed": false,
+      "panels": [],
+      "datasource": null,
+      "id": 12
+    },
+    {
+      "type": "table",
+      "title": "VM slots per node",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (node, label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"})",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (node, label_orka_macstadium_com_namespace) ((kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(namespace, pod) group_left() (max by (namespace, pod) (kube_pod_status_phase{cluster=~\"$cluster\",phase=~\"Pending|Running\"}) == 1)) * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) or sum by (node, label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) * 0",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (node, label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) - (sum by (node, label_orka_macstadium_com_namespace) ((kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(namespace, pod) group_left() (max by (namespace, pod) (kube_pod_status_phase{cluster=~\"$cluster\",phase=~\"Pending|Running\"}) == 1)) * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) or sum by (node, label_orka_macstadium_com_namespace) (kube_node_status_allocatable{cluster=~\"$cluster\",resource=\"apple_com_vm\"} * on(node) group_left(label_orka_macstadium_com_namespace) kube_node_labels{cluster=~\"$cluster\",label_orka_macstadium_com_namespace=~\"$namespace\"}) * 0)",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "node": "Node",
+              "label_orka_macstadium_com_namespace": "Orka namespace",
+              "Value #A": "Slots",
+              "Value #B": "In use",
+              "Value #C": "Free"
+            },
+            "indexByName": {
+              "node": 0,
+              "label_orka_macstadium_com_namespace": 1,
+              "Value #A": 2,
+              "Value #B": 3,
+              "Value #C": 4
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Orka namespace"
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Free"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 13
+    },
+    {
+      "type": "row",
+      "title": "Deploy pressure",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 43
+      },
+      "collapsed": false,
+      "panels": [],
+      "datasource": null,
+      "id": 14
+    },
+    {
+      "type": "timeseries",
+      "title": "VMs waiting for a slot",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 44
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count by (namespace) (kube_pod_status_scheduled{cluster=~\"$cluster\",condition=\"false\",namespace=~\"$namespace\"} == 1 and on(namespace, pod) kube_pod_container_resource_requests{cluster=~\"$cluster\",resource=\"apple_com_vm\"}) or on() vector(0)",
+          "legendFormat": "{{namespace}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 15
+    },
+    {
+      "type": "timeseries",
+      "title": "Operator deploy outcomes (per minute)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(orka_operator_virtual_machine_failures_total{cluster=~\"$cluster\"}[5m])) * 60",
+          "legendFormat": "failures"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(orka_operator_virtual_machine_successes_total{cluster=~\"$cluster\"}[5m])) * 60",
+          "legendFormat": "successes"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 16
+    }
+  ]
+}
